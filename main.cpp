@@ -1,15 +1,25 @@
 #include <iostream>
 #include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/SVD>
 #include "happly.h"
 #include "icp.h"
-#include <eigen3/Eigen/SVD>
+#include "utils.h"
 
 
-int main() {
+
+int main(int argc, char* argv[]) {
 
     using namespace std;
     // load the ply file
-    string plyfile = "/home/brazenparadox/Documents/MASc/thesis/code_repo/3d_registration_castellani_and_bartoli_python/demo/bunny/reconstruction/bun_zipper_res3.ply";
+    if(argc == 1){
+        cout << "Kindly enter the location of the plyfile as the argument";
+        return 1;
+    }
+    char* plyfile_location = argv[1];
+
+    // get the plyfile location
+
+    string plyfile = plyfile_location;// "/home/brazenparadox/Documents/MASc/thesis/code_repo/3d_registration_castellani_and_bartoli_python/demo/bunny/reconstruction/bun_zipper_res3.ply";
 
     happly::PLYData plyIn(plyfile);
     std::vector<float> x = plyIn.getElement("vertex").getProperty<float>("x");
@@ -27,49 +37,20 @@ int main() {
     for(int i=0; i<x.size(); i++){
         pclmatrix(2,i) = z[i];
     }
-//    for(int i=0; i<x.size(); i++){
-//        pclmatrix(3, i) = 1;
-//    }
 
     Eigen::MatrixXf dataview(3, x.size());
 
-    // rotate the matrix along z
-    int degree = 40;
-    float theta = degree * 3.14/180;
-    Eigen::Matrix<float, 3, 3> zrotational_matrix;
-    zrotational_matrix << cos(theta), -sin(theta), 0, sin(theta), cos(theta), 0, 0, 0, 1 ;
-    dataview << zrotational_matrix*pclmatrix;
+    // rotate the pcl matrix by 40 degrees along z axis
+    dataview = rotate_matrix_along_z(pclmatrix, 40);
 
-//    // rotate the matrix along x
-//    degree = 23;
-//    theta = degree * 3.14/180;
-//    Eigen::Matrix<float, 3, 3> xrotational_matrix;
-//    xrotational_matrix << 1, 0, 0, 0, cos(theta), -sin(theta), 0, sin(theta), cos(theta);
-//    dataview << xrotational_matrix*dataview;
-//
-//    // rotate the matrix along y
-//    degree = 13;
-//    theta = degree * 3.14/180;
-//    Eigen::Matrix<float, 3, 3> yrotational_matrix;
-//    yrotational_matrix << cos(theta), 0, -sin(theta),  0, 1, 0, sin(theta), 0, cos(theta)  ;
-//    dataview << yrotational_matrix*dataview;
+    // rotate the matrix along x
+    dataview = rotate_matrix_along_x(dataview, 23);
 
-    //cout << zrotational_matrix << endl;
+    //rotate the matrix along y
+    //dataview = rotate_matrix_along_y(dataview, 0); -- no significance since the degree is zero. Can be uncommented if degree is non-zero.
 
-
-    //cout << dataview << endl;
-
-    // translate the matrix by 2 in x and 3 in y
-//    Eigen::Matrix<float, 3, 3> translational_matrix;
-//    translational_matrix << 1, 0, 0, 2,
-//            0, 1, 0, 3,
-//            0, 0, 1, 0,
-//            0, 0, 0, 1;
-//    dataview << translational_matrix*dataview;
-
-    Eigen::Vector3f translation_matrix = Eigen::Vector3f(2.0, 3.0, 0.0);
-    //cout << translation_matrix;
-    dataview << dataview.colwise() + translation_matrix;
+    // translate the matrix by 2 and 3 in x and y axes respectively
+    dataview = translate_matrix(dataview, 2, 3, 0);
 
     // calculate centroid of model view
     Eigen::Matrix<float, 3, 1> model_mean = calculate_centroid(pclmatrix);
@@ -90,11 +71,9 @@ int main() {
         // decompose using svd
         Eigen::BDCSVD<Eigen::Matrix<float, 3, 3>> svd(cross_covariance, Eigen::ComputeFullU | Eigen::ComputeFullV);
         // cout << "\ncross covariance is " << cross_covariance;
-        //svd.computeU();
-        //svd.computeV();
-        // cout << "\nThe singular values are " << svd.singularValues();
-        //cout << "\n The u matrix is" << svd.matrixU();
-        //cout << "\n The v matrix is" << svd.matrixV();
+        // cout << "\nThe singular values from svd are " << svd.singularValues();
+        // cout << "\n The u matrix is" << svd.matrixU();
+        // cout << "\n The v matrix is" << svd.matrixV();
 
         Eigen::Matrix<float, 3, 3> u = svd.matrixU();
         Eigen::Matrix<float, 3, 3> v = svd.matrixV();
@@ -107,7 +86,7 @@ int main() {
         if (determinanant_prod == 1) {
             s.diagonal() << 1, 1, 1;
         } else if (determinanant_prod == -1) {
-//            cout << "\n\nproduct of determinants is -1";
+            //cout << "\n\nproduct of determinants is -1";
             s.diagonal() << 1, 1, -1;
         }
 
@@ -116,12 +95,11 @@ int main() {
         // calcuation rotation matrix
         Eigen::Matrix<float, 3, 3> rotational_matrix;
         rotational_matrix = v * s * u.transpose();
-        //cout << "\n\nrotational_matrix" << rotational_matrix;
+        // cout << "\n\nrotational_matrix" << rotational_matrix;
 
         // calculate translation matrix
-
         Eigen::Matrix<float, 3, 1> translational_matrix = model_mean - rotational_matrix * data_mean;
-        //cout << "\n\ntranslational_matrix" << translational_matrix;
+        // cout << "\n\ntranslational_matrix" << translational_matrix;
 
         // transform matrix
         dataview = transform_matrix(dataview, rotational_matrix, translational_matrix);
