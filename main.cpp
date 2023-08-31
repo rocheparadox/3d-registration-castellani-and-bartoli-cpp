@@ -6,22 +6,8 @@
 #include "utils.h"
 
 
-
-int main(int argc, char* argv[]) {
-
-    using namespace std;
-    // load the ply file
-    if(argc == 1){
-        cout << "Kindly enter the location of the plyfile as the argument";
-        return 1;
-    }
-    char* plyfile_location = argv[1];
-
-    // get the plyfile location
-
-    string plyfile = plyfile_location;// "/home/brazenparadox/Documents/MASc/thesis/code_repo/3d_registration_castellani_and_bartoli_python/demo/bunny/reconstruction/bun_zipper_res3.ply";
-
-    happly::PLYData plyIn(plyfile);
+Eigen::MatrixXf get_pcl_from_plyfile(std::string plyfile_location){
+    happly::PLYData plyIn(plyfile_location);
     std::vector<float> x = plyIn.getElement("vertex").getProperty<float>("x");
     std::vector<float> y = plyIn.getElement("vertex").getProperty<float>("y");
     std::vector<float> z = plyIn.getElement("vertex").getProperty<float>("z");
@@ -38,22 +24,26 @@ int main(int argc, char* argv[]) {
         pclmatrix(2,i) = z[i];
     }
 
-    Eigen::MatrixXf dataview(3, x.size());
+    return pclmatrix;
+}
 
-    // rotate the pcl matrix by 40 degrees along z axis
-    dataview = rotate_matrix_along_z(pclmatrix, 40);
+int main(int argc, char* argv[]) {
 
-    // rotate the matrix along x
-    dataview = rotate_matrix_along_x(dataview, 23);
+    using namespace std;
+    // load the ply file
+    if(argc != 3){
+        cout << "Kindly enter the location of the plyfile of the modelview and dataview\n";
+        return 1;
+    }
 
-    //rotate the matrix along y
-    //dataview = rotate_matrix_along_y(dataview, 0); -- no significance since the degree is zero. Can be uncommented if degree is non-zero.
+    char* modelview_location = argv[1];
+    char* dataview_location = argv[2];
 
-    // translate the matrix by 2 and 3 in x and y axes respectively
-    dataview = translate_matrix(dataview, 2, 3, 0);
+    Eigen::Matrix dataview = get_pcl_from_plyfile(dataview_location);
+    Eigen::Matrix modelview = get_pcl_from_plyfile(modelview_location);
 
     // calculate centroid of model view
-    Eigen::Matrix<float, 3, 1> model_mean = calculate_centroid(pclmatrix);
+    Eigen::Matrix<float, 3, 1> model_mean = calculate_centroid(modelview);
     //cout << model_mean;
     // calculate centroid of data view
     Eigen::Matrix<float, 3, 1> data_mean = calculate_centroid(dataview);
@@ -62,8 +52,8 @@ int main(int argc, char* argv[]) {
     int iteration = 0;
     while (sse > 0.1) {
         // get correspondent points
-        Eigen::MatrixXf correspondent_points(3, x.size());
-        correspondent_points = get_correspondence_points(pclmatrix, dataview);
+        Eigen::MatrixXf correspondent_points(3, dataview.cols());
+        correspondent_points = get_correspondence_points(modelview, dataview);
         // cout << "The correspondent points are " << correspondent_points;
         //calculate cross covariance matrix
         Eigen::Matrix<float, 3, 3> cross_covariance = calculate_cross_covariance(dataview, correspondent_points);
@@ -104,7 +94,7 @@ int main(int argc, char* argv[]) {
         // transform matrix
         dataview = transform_matrix(dataview, rotational_matrix, translational_matrix);
         data_mean = calculate_centroid(dataview);
-        sse = calculate_sse(dataview, pclmatrix);
+        sse = calculate_sse(dataview, modelview);
 
         cout << "\nSSE is " << sse << " in iteration " << iteration++;
     }
