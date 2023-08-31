@@ -92,6 +92,8 @@ int main(int argc, char* argv[]) {
         // cout << "\n\ntranslational_matrix" << translational_matrix;
 
         // transform matrix
+        Eigen::Matrix<float, 4, 4> transformational_matrix = get_transformation_matrix(rotational_matrix, translational_matrix);
+        // cout << "\n transformational_matrix is " << transformational_matrix << "\n";
         dataview = transform_matrix(dataview, rotational_matrix, translational_matrix);
         data_mean = calculate_centroid(dataview);
         sse = calculate_sse(dataview, modelview);

@@ -30,3 +30,25 @@ Eigen::MatrixXf translate_matrix(Eigen::MatrixXf matrix, float x, float y, float
     //cout << translation_matrix;
     return matrix.colwise() + translation_matrix;
 }
+
+Eigen::Matrix<float, 4, 4> get_transformation_matrix(Eigen::Matrix<float, 3, 3> rotational_matrix, Eigen::Matrix<float, 3, 1> translational_matrix){
+
+    Eigen::Matrix<float, 4, 4> transformational_matrix;
+    for(int row=0; row<3; row++){
+        for(int col=0; col<3; col++){
+            transformational_matrix(row, col) = rotational_matrix(row, col);
+        }
+    }
+
+    for(int row=0; row<3; row++){
+        transformational_matrix(row, 3) = translational_matrix(row, 0);
+    }
+
+    for(int col=0; col<3; col++){
+        transformational_matrix(3, col) = 0;
+    }
+
+    transformational_matrix(3, 3) = 1;
+
+    return transformational_matrix;
+}
