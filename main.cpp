@@ -5,6 +5,7 @@
 #include "icp.h"
 #include "utils.h"
 
+#include<chrono>
 
 Eigen::MatrixXf get_pcl_from_plyfile(std::string plyfile_location){
     happly::PLYData plyIn(plyfile_location);
@@ -50,6 +51,9 @@ int main(int argc, char* argv[]) {
 
     float sse = 1.1; // arbitrary value initialization
     int iteration = 0;
+
+    // get the time now
+    auto start = chrono::steady_clock::now();
     while (sse > 0.1) {
         // get correspondent points
         Eigen::MatrixXf correspondent_points(3, dataview.cols());
@@ -72,10 +76,10 @@ int main(int argc, char* argv[]) {
         int det_v = round(v.determinant());
         int det_u = round(u.determinant());
 
-        int determinanant_prod = det_u * det_v;
-        if (determinanant_prod == 1) {
+        int determinant_prod = det_u * det_v;
+        if (determinant_prod == 1) {
             s.diagonal() << 1, 1, 1;
-        } else if (determinanant_prod == -1) {
+        } else if (determinant_prod == -1) {
             //cout << "\n\nproduct of determinants is -1";
             s.diagonal() << 1, 1, -1;
         }
@@ -86,6 +90,7 @@ int main(int argc, char* argv[]) {
         Eigen::Matrix<float, 3, 3> rotational_matrix;
         rotational_matrix = v * s * u.transpose();
         // cout << "\n\nrotational_matrix" << rotational_matrix;
+        
 
         // calculate translation matrix
         Eigen::Matrix<float, 3, 1> translational_matrix = model_mean - rotational_matrix * data_mean;
@@ -100,5 +105,9 @@ int main(int argc, char* argv[]) {
 
         cout << "\nSSE is " << sse << " in iteration " << iteration++;
     }
+    auto end = chrono::steady_clock::now();
+    auto time_taken = chrono::duration_cast<chrono::milliseconds>(end-start).count();
+
+    cout << "\nTotal time taken for the ICP process is " << time_taken << " milliseconds";
 
 }
